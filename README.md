@@ -51,7 +51,6 @@ Vue.use(XGanttElasticPlugin)
 
 ### 组件
 
-
 ```vue
 <x-gantt-elastic
   :options="options"
@@ -177,7 +176,7 @@ Vue.use(XGanttElasticPlugin)
   }
   ```
 
-  
+
 
 - locale
 
@@ -310,4 +309,3 @@ const options = {
   </template>
 </gantt-elastic>
 ```
-
