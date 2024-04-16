@@ -18,15 +18,13 @@
           :class="`scrolling-${scrollPosition}`"
           @mousemove="resizerMove"
           @mouseup="resizerEnd"
+          @wheel.prevent="taskListWheel"
         >
           <task-list-container ref="taskListContainer" :task-columns="root.getTaskListAllColumns">
-            <template
-              v-for="column in root.getTaskListAllColumns"
-              v-slot:[column.customSlot]="scopeSlot"
-            >
+            <template v-for="column in root.getTaskListAllColumns" v-slot:[column.id]="scopeSlot">
               <slot
                 v-if="column.customSlot"
-                :name="column.customSlot"
+                :name="column.id"
                 :row="scopeSlot.row"
                 :column="scopeSlot.column"
               />
@@ -41,11 +39,11 @@
           >
             <template
               v-for="column in root.getTaskListLeftFixedColumns"
-              v-slot:[column.customSlot]="scopeSlot"
+              v-slot:[column.id]="scopeSlot"
             >
               <slot
                 v-if="column.customSlot"
-                :name="column.customSlot"
+                :name="column.id"
                 :row="scopeSlot.row"
                 :column="scopeSlot.column"
               />
@@ -60,11 +58,11 @@
           >
             <template
               v-for="column in root.getTaskListRightFixedColumns"
-              v-slot:[column.customSlot]="scopeSlot"
+              v-slot:[column.id]="scopeSlot"
             >
               <slot
                 v-if="column.customSlot"
-                :name="column.customSlot"
+                :name="column.id"
                 :row="scopeSlot.row"
                 :column="scopeSlot.column"
               />
@@ -102,7 +100,7 @@
             ref="chartContainer"
             class="gantt-elastic__main-view-container"
             :style="{ ...root.style['main-view-container'] }"
-            @wheel.prevent="chartWheel"
+            @wheel.prevent.stop="chartWheel"
           >
             <!--
               !depreciated
@@ -120,17 +118,25 @@
             </div>
             <!-- 跳转到时间开始节点 -->
             <time-dot-handler ref="timeDotHandler" />
+            <!-- START gantt 图标区域横向滚动条 -->
+            <div
+              ref="chartScrollContainerHorizontal"
+              class="gantt-elastic__chart-scroll-container gantt-elastic__chart-scroll-container--horizontal"
+              @scroll="onHorizontalScroll"
+            >
+              <div
+                class="gantt-elastic__chart-scroll--horizontal"
+                :style="{ height: '1px', width: root.state.options.width + 'px' }"
+              ></div>
+            </div>
+            <!-- END -->
           </div>
         </div>
       </div>
       <div
         ref="chartScrollContainerVertical"
         class="gantt-elastic__chart-scroll-container gantt-elastic__chart-scroll-container--vertical"
-        :style="{
-          ...root.style['chart-scroll-container'],
-          ...root.style['chart-scroll-container--vertical'],
-          ...verticalStyle
-        }"
+        :style="{ ...verticalStyle }"
         @scroll="onVerticalScroll"
       >
         <div
@@ -156,24 +162,6 @@
       ></div>
     </div>
     <!-- END -->
-    <div
-      ref="chartScrollContainerHorizontal"
-      class="gantt-elastic__chart-scroll-container gantt-elastic__chart-scroll-container--horizontal"
-      :style="{
-        ...root.style['chart-scroll-container'],
-        ...root.style['chart-scroll-container--horizontal'],
-        position: 'relative',
-        marginLeft: getMarginLeft,
-        marginTop: '-16px',
-        zIndex: 1
-      }"
-      @scroll="onHorizontalScroll"
-    >
-      <div
-        class="gantt-elastic__chart-scroll--horizontal"
-        :style="{ height: '1px', width: root.state.options.width + 'px' }"
-      ></div>
-    </div>
   </div>
 </template>
 
@@ -234,11 +222,12 @@ export default {
      * @returns {object}
      */
     verticalStyle() {
+      const { options } = this.root.state
       return {
-        width: this.root.state.options.scrollBarHeight + 'px',
-        height: this.root.state.options.rowsHeight + 'px',
-        'margin-top':
-          this.root.state.options.calendar.height + this.root.state.options.calendar.gap + 'px'
+        width: options.scrollBarHeight + 'px',
+        height: options.rowsHeight + 'px',
+        'margin-left': `-${options.scrollBarHeight}px`,
+        'margin-top': options.calendar.height + options.calendar.gap + 'px'
       }
     },
 
@@ -318,6 +307,7 @@ export default {
     this.root.state.refs.taskListContainer = this.$refs.taskListContainer.$el
     this.root.state.refs.chartScrollContainerHorizontal = this.$refs.chartScrollContainerHorizontal
     this.root.state.refs.chartScrollContainerVertical = this.$refs.chartScrollContainerVertical
+    this.root.state.refs.taskScrollContainer = this.scrollContainer
     document.addEventListener('mouseup', this.chartMouseUp.bind(this))
     document.addEventListener('mousemove', this.chartMouseMove.bind(this))
     // document.addEventListener('touchmove', this.chartMouseMove.bind(this))
@@ -355,7 +345,16 @@ export default {
     },
 
     /**
-     * 同步滚动位置
+     * Task list horizontal wheel event handler
+     */
+    taskListWheel(ev) {
+      this.root.$emit('taskList-container-wheel', ev)
+
+      this.syncPosition()
+    },
+
+    /**
+     * 同步滚动位置，确定任务列表滚动位置
      */
     syncPosition: throttle(100, function () {
       const { scrollLeft } = this.root.state.options.taskList
@@ -498,7 +497,8 @@ export default {
       e.preventDefault()
       if (!this.resizing) return
       this.resizing = false
-      this.root.$emit('taskList-view-width-change', Number(e.x))
+      const offsetX = this.$parent.$el.getBoundingClientRect().left
+      this.root.$emit('taskList-view-width-change', Number(e.x - offsetX))
     }
   }
 }
@@ -506,6 +506,7 @@ export default {
 
 <style lang="scss">
 .gantt-elastic__main-view {
+  position: relative;
   .gantt-elastic__main-view-container {
     .gantt-elastic__toggle-handler {
       width: 24px;
@@ -575,7 +576,7 @@ export default {
     z-index: 2;
   }
   .gantt-elastic__task-list-scroll-container {
-    position: relative;
+    position: absolute;
     left: 0;
     bottom: 0;
     overflow: auto;
@@ -593,6 +594,25 @@ export default {
   transition: linear;
   &:hover {
     opacity: 0.8;
+  }
+}
+
+.gantt-elastic__main-view .gantt-elastic__chart-scroll-container {
+  &--horizontal {
+    overflow: auto;
+    max-width: 100%;
+    position: absolute;
+    margin-top: -16px;
+    z-index: 1;
+  }
+  &--vertical {
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: 100%;
+    float: right;
+    // overflow: hidden auto;
+    position: relative;
+    z-index: 1;
   }
 }
 </style>

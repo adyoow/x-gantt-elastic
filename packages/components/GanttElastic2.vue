@@ -8,7 +8,7 @@
       <tool-bar></tool-bar>
     </template>
     <main-view ref="mainView">
-      <template v-for="column in getTaskListColumnsSilently" v-slot:[column.customSlot]="scopeSlot">
+      <template v-for="column in getTaskListColumnsSilently" v-slot:[column.id]="scopeSlot">
         <slot
           v-if="column.customSlot"
           :name="column.customSlot"
@@ -384,7 +384,7 @@ export default {
       this.ganttEngine.initTasksConfig()
       const height = getScrollBarHeight()
       this.options.scrollBarHeight = height
-      this.style['chart-scroll-container--vertical']['margin-left'] = `-${height}px`
+      // this.style['chart-scroll-container--vertical']['margin-left'] = `-${height}px`
       this.options.outerHeight = this.options.height + this.options.scrollBarHeight
     },
 

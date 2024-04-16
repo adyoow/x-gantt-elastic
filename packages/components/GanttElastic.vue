@@ -8,7 +8,7 @@
       <tool-bar></tool-bar>
     </template>
     <main-view ref="mainView">
-      <template v-for="column in getTaskListColumnsSilently" v-slot:[column.customSlot]="scopeSlot">
+      <template v-for="column in getTaskListColumnsSilently" v-slot:[column.id]="scopeSlot">
         <slot
           v-if="column.customSlot"
           :name="column.customSlot"
@@ -421,7 +421,7 @@ export default {
       var withScroll = inner.offsetHeight
       outer.parentNode.removeChild(outer)
       const height = noScroll - withScroll
-      this.style['chart-scroll-container--vertical']['margin-left'] = `-${height}px`
+      // this.style['chart-scroll-container--vertical']['margin-left'] = `-${height}px`
       return (this.state.options.scrollBarHeight = height)
     },
 
@@ -548,8 +548,9 @@ export default {
           column.widthFromPercentage = (column.width / 100) * percent
         }
         percentage += column.widthFromPercentage
-        column.finalWidth = (column.thresholdPercent * column.widthFromPercentage) / 100
-        final += column.finalWidth
+        // column.finalWidth = (column.thresholdPercent * column.widthFromPercentage) / 100
+        // 允许根据用户配置设置宽度
+        final += column.width
         column.height = this.getTaskHeight() - this.style['grid-line-horizontal']['stroke-width']
       }
       this.state.options.taskList.widthFromPercentage = percentage
@@ -754,6 +755,41 @@ export default {
       if (scrollLeft !== this.state.options.taskList.scrollLeft) {
         this.state.options.taskList.scrollLeft = scrollLeft
         this.state.refs.taskListContainer.scrollLeft = scrollLeft
+      }
+    },
+
+    /**
+     * Task list container wheel event handler
+     */
+    onWheelTaskList(ev) {
+      const taskScrollContainer = this.state.refs.taskScrollContainer
+      const taskListScrollTo = (left) => {
+        this.state.options.taskList.scrollLeft = left
+        this.state.refs.taskListContainer.scrollLeft = left
+        this.state.refs.taskScrollContainer.scrollLeft = left
+      }
+      if (!ev.shiftKey && ev.deltaX === 0) {
+        return
+      } else if (ev.shiftKey && ev.deltaX === 0) {
+        let left = this.state.options.taskList.scrollLeft + ev.deltaY
+        const chartClientWidth = taskScrollContainer.clientWidth
+        const scrollWidth = taskScrollContainer.scrollWidth - chartClientWidth
+        if (left < 0) {
+          left = 0
+        } else if (left > scrollWidth) {
+          left = scrollWidth
+        }
+        taskListScrollTo(left)
+      } else {
+        let left = this.state.options.taskList.scrollLeft + ev.deltaX
+        const chartClientWidth = taskScrollContainer.clientWidth
+        const scrollWidth = taskScrollContainer.scrollWidth - chartClientWidth
+        if (left < 0) {
+          left = 0
+        } else if (left > scrollWidth) {
+          left = scrollWidth
+        }
+        taskListScrollTo(left)
       }
     },
 
@@ -1041,7 +1077,8 @@ export default {
         { name: 'chart-download-with-pic', evt: this.onChartDownloadWithPic },
         { name: 'taskList-row-click', evt: this.onTaskListRowClick },
         { name: 'chartBlock-row-click', evt: this.onChartBlockRowClick },
-        { name: 'taskList-container-scroll-horizontal', evt: this.onScrollTaskListContainer }
+        { name: 'taskList-container-scroll-horizontal', evt: this.onScrollTaskListContainer },
+        { name: 'taskList-container-wheel', evt: this.onWheelTaskList }
       ]
       eventConfig.forEach((event) => this.$on(event.name, event.evt))
     },
